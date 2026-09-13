@@ -21,14 +21,14 @@ class ProductOut(BaseModel):
 
 class CustomerIn(BaseModel):
     full_name: str
-    phone: Optional[str]
+    phone: Optional[str] = None
     # Avoid pydantic[email] extra dependency in tests by using plain str here.
-    email: Optional[str]
-    address_line1: Optional[str]
-    city: Optional[str]
-    state: Optional[str]
-    postal_code: Optional[str]
-    country: Optional[str]
+    email: Optional[str] = None
+    address_line1: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
 
 
 class OrderItemIn(BaseModel):
