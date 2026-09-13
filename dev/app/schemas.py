@@ -39,7 +39,8 @@ class OrderItemIn(BaseModel):
 class OrderCreate(BaseModel):
     customer: CustomerIn
     items: List[OrderItemIn]
-    payment_method: str = Field("COD", regex="^(COD|ONLINE)$")
+    # Use `pattern` (pydantic v2) instead of the removed `regex` kwarg
+    payment_method: str = Field("COD", pattern="^(COD|ONLINE)$")
     notes: Optional[str]
 
 
