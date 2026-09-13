@@ -6,7 +6,7 @@ implementing full business logic. Use type hints and validation where useful.
 from __future__ import annotations
 
 from typing import List, Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 
 class ProductOut(BaseModel):
@@ -22,7 +22,8 @@ class ProductOut(BaseModel):
 class CustomerIn(BaseModel):
     full_name: str
     phone: Optional[str]
-    email: Optional[EmailStr]
+    # Avoid pydantic[email] extra dependency in tests by using plain str here.
+    email: Optional[str]
     address_line1: Optional[str]
     city: Optional[str]
     state: Optional[str]
