@@ -7,7 +7,7 @@ description: >
   Does not write tests — that is Phase 7.
 tools: [read, edit, search, execute]
 user-invocable: true
-argument-hint: "Path to impl-plan.md; optionally TASK-IDs to execute"
+argument-hint: "Path to impl-plan-old.md; optionally TASK-IDs to execute"
 ---
 
 # SDLC Step 05 — Implementation Engineer

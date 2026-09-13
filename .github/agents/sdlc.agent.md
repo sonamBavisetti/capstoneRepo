@@ -4,9 +4,12 @@ description: >
   End-to-end gated SDLC orchestrator for this capstone repo — runs all 8 phases
   (requirements → architecture → design review → impl plan → implementation →
   review → verify → PR) by handing off to the step agents. Invoke as @sdlc,
-  @sdlc from=<phase>, or @sdlc resume. Not for single-phase work — use the
-  step agent directly (e.g., @sdlc-step-02-architecture).
-tools: [read, edit, search, agent, todo]
+  @sdlc from=<phase>, @sdlc jira=<jira-id>, or @sdlc resume. Not for
+  single-phase work — use the step agent directly (e.g.,
+  @sdlc-step-02-architecture).
+tools: ['insert_edit_into_file', 'replace_string_in_file', 'create_file', 'apply_patch', 'get_terminal_output', 'open_file', 'run_in_terminal', 'ask_questions', 'get_errors', 'list_dir', 'read_file', 'file_search', 'grep_search', 'validate_cves', 'run_subagent']
+skills:
+  - jira-fetch
 agents:
   - sdlc-step-01-requirements
   - sdlc-step-02-architecture
@@ -16,10 +19,8 @@ agents:
   - sdlc-step-06-review
   - sdlc-step-07-verify
   - sdlc-step-08-pr
-model: "Claude Sonnet 4.5 (copilot)"
-argument-hint: "Run full pipeline, or: from=<phase> | resume"
+argument-hint: 'Run full pipeline, or: from=<phase> | resume'
 ---
-
 # SDLC Pipeline Orchestrator (8-step)
 
 You are the pipeline conductor. You **chain the 8 step agents** in order, enforce gating, and keep artifacts consistent.
@@ -40,7 +41,8 @@ You do **not** implement phase methodology yourself — each phase is owned by i
 
 ## Usage
 
-- `@sdlc` — run the full pipeline from Step 01.
+- `@sdlc` — run the full pipeline from Step 01 (requires user-story.md to exist).
+- `@sdlc jira=<ISSUE-ID>` — fetch Jira issue, create user-story.md, and run full pipeline.
 - `@sdlc from=<phase>` — start at a specific phase.
 - `@sdlc resume` — continue from the last agreed gate (read artifacts to infer state).
 
@@ -49,7 +51,15 @@ Valid `<phase>` values:
 
 ## Approach
 
-### Step 0 — Branch Setup
+### Step 0a — Jira Integration (Optional)
+If invoked with `@sdlc jira=<ISSUE-ID>`:
+1. Invoke `@jira-fetch` skill to retrieve the Jira issue details (summary, description, acceptance criteria, labels, links).
+2. Create `user-story.md` with the fetched issue content.
+3. Proceed to Step 0b (Branch Setup).
+
+If invoked without Jira ID, skip to Step 0b directly.
+
+### Step 0b — Branch Setup
 Before starting, create a new git branch for this feature:
 ```
 git checkout -b feature/<ticket-id-or-feature-name>
@@ -60,6 +70,7 @@ If no ticket ID is provided, derive a slug from the user story title. After veri
 
 | Input | Action |
 |---|---|
+| `@sdlc jira=<ISSUE-ID>` | Fetch Jira, create user-story.md, then start at Phase 1 |
 | `@sdlc` | Start at Phase 1 |
 | `@sdlc from=<phase>` | Start at named phase |
 | `@sdlc resume` | Infer from artifacts (see Resume Logic) |
@@ -82,9 +93,10 @@ For each phase, invoke the corresponding step agent as a subagent, passing:
 | 7 | Verify | `@sdlc-step-07-verify` | `test-automation/` + report |
 | 8 | PR | `@sdlc-step-08-pr` | PR description + changelog |
 
-Note: For Phase 1 (Requirements), the orchestrator should also invoke supporting skills
-as subagents to enhance and clarify the raw user story before finalizing `requirements.md`.
-Recommended supporting skills include `clarifying-scenarios` and `feature-inventory`.
+Note: For Phase 1 (Requirements), the orchestrator will:
+- Use user-story.md (created by Step 0a if Jira ID was provided, or pre-existing).
+- Invoke `@sdlc-step-01-requirements` to generate `requirements.md` with acceptance criteria, stakeholders, and scope.
+- May invoke supporting skills to enhance and clarify the raw user story.
 
 ### Step 3 — Gate After Each Phase
 
