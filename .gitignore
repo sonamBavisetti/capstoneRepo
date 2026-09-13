@@ -1,2 +1,8 @@
-﻿@\n.env\n__pycache__/\n*.pyc\ninstance/\nvenv/\n
-".github/.env" 
+﻿.env
+__pycache__/
+*.pyc
+instance/
+venv/
+.github/.env
+.jira-config.json
+jira-config.json

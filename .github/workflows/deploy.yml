@@ -1,0 +1,21 @@
+name: Deploy to staging
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Run migrations
+        run: python -c "from dev.db import init_db; init_db()"
+      - name: Smoke test
+        run: python -c "import requests; print('smoke')"
