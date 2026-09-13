@@ -107,7 +107,8 @@ def get_invoice(order_id: str, db=Depends(app_db.get_db)) -> schemas.InvoiceResp
         raise HTTPException(status_code=404, detail="Invoice not found")
 
     download_url = None
-    if inv.status == "READY" and inv.pdf_path:
+    # Accept either uppercase or lowercase stored status values by normalizing.
+    if (inv.status or "").upper() == "READY" and inv.pdf_path:
         # Local file fallback. In production this should return a signed S3 URL.
         download_url = f"file://{inv.pdf_path}"
 
@@ -123,16 +124,18 @@ def create_payment_session(payload: schemas.PaymentSessionCreate, request: Reque
 
 
 @app.post("/api/payments/webhook")
-def payments_webhook(request: Request, sig_header: Optional[str] = Header(None, alias="Stripe-Signature")):
-    body = request.body()
-    # NOTE: in FastAPI request.body() is async; to keep this minimal we use sync fallback
-    try:
-        raw_body = request._body if hasattr(request, "_body") else b""
-    except Exception:
-        raw_body = b""
+async def payments_webhook(request: Request, sig_header: Optional[str] = Header(None, alias="Stripe-Signature")):
+    """Webhook handler for payment provider events.
+
+    Read the raw request body correctly in an async FastAPI handler and pass
+    it to the payment adapter for verification. The current adapter is a
+    stub and returns a minimal event structure; signature verification is a
+    TODO for TASK-08.
+    """
+    raw_body = await request.body()
 
     adapter = payment_adapter.StripeAdapter()
-    # TODO: implement proper body read and signature verification
+    # TODO: implement proper signature verification using adapter and fail fast
     event = adapter.verify_webhook(raw_body, sig_header or "")
 
     # Minimal stub handling
