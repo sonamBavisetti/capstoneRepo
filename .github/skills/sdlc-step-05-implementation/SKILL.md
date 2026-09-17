@@ -1,53 +1,58 @@
 ---
-name: sdlc-step-05-implementation
-description: >
-  Use when: executing the implementation plan to write production code. Invoked
-  by @sdlc Phase 5 or directly as @sdlc-step-05-implementation. Reads
-  impl-plan.md and architecture.md, writes code under dev/ (Python only). Does
-  not write tests. Triggers: "implement code", "execute plan", "write dev code".
----
 
-# SDLC Step 05 — Implementation Engineer
+name: implementation
+description: Execute the approved implementation plan and create production-ready Python code.
+----------------------------------------------------------------------------------------------
 
-You are a senior software engineer. Your sole job is to execute the implementation plan and write production-quality code under `dev/`.
+# Implementation Skill
 
-## Skill Invocation
+## Purpose
 
-- During implementation, invoke supporting skills to double-check requirement interpretations (e.g., `clarifying-scenarios`) and to surface guidelines or patterns (`guidelines`) that affect code-level decisions.
-- DO NOT skip a task — implement every TASK in `impl-plan.md` in order unless a subset is requested.
-- DO NOT modify `requirements.md`, `architecture.md`, `design-review.md`, or `impl-plan.md`.
-- ALWAYS follow OWASP Top 10 security practices.
+Execute the approved `impl-plan.md` and implement the planned functionality using the architecture as the source of truth.
 
-## Approach
+## Instructions
 
-   a. Read the target file(s).
-   b. Implement the task under `dev/`.
-   d. Record completion.
-3. Report completed tasks, skipped tasks, and blockers.
+1. Read `impl-plan.md` from the repository root.
+2. Read `architecture.md` to understand the approved design.
+3. Execute tasks in the defined execution order.
+4. For each task:
 
-## Code Quality Standards
+    * Read the existing target files, if any.
+    * Implement the functionality described by the task.
+    * Create or modify only the files specified by the implementation plan where possible.
+    * Verify the task's Definition of Done.
+5. Keep implementation aligned with the approved architecture.
+6. Implement only functionality supported by the requirements and implementation plan.
+7. Keep all production Python code under `dev/`.
+8. Do not create or modify test files; test automation is handled by Phase 7.
+9. Use environment variables for credentials and secrets.
+10. Never hardcode passwords, API tokens, keys, or other secrets.
+11. Validate external inputs and handle errors appropriately.
+12. Follow Python best practices and PEP 8.
+13. Use type hints for Python code.
+14. Do not modify `requirements.md`, `architecture.md`, `design-review.md`, or `impl-plan.md`.
+15. Do not redesign the architecture during implementation.
+16. If a task cannot be implemented because of a missing dependency, unclear requirement, or architecture issue, stop that task and clearly report the blocker.
+17. After implementation, report completed and blocked tasks.
 
-- Follow PEP 8.
-- Use type hints.
-- Handle errors at system boundaries.
-- Use environment variables for secrets.
-- Validate all external inputs.
-- Write self-documenting code.
+## Implementation Rules
 
-## Output Format
+* Follow the task dependencies defined in `impl-plan.md`.
+* Do not silently skip tasks.
+* Do not introduce unrelated features or refactoring.
+* Reuse existing project structure and components when appropriate.
+* Keep changes focused on the current task.
+* Verify that the implementation satisfies the task's Definition of Done.
+* If implementation requires a decision that conflicts with `architecture.md`, report the conflict instead of changing the architecture.
 
-```
-## Implementation Report
+## Expected Result
 
-### Completed Tasks
-- TASK-01: <title> → `dev/<file>`
-- TASK-02: <title> → `dev/<file>`
+Production-ready Python implementation under `dev/` that satisfies the approved implementation plan.
 
-### Skipped / Blocked
-- TASK-XX: <reason>
+Provide a completion report containing:
 
-### Notes
-<Any deviations from the plan or architectural decisions made during impl>
-```
-
-Return this report to the orchestrator for the Phase 5 gate.
+* Completed tasks
+* Blocked or skipped tasks
+* Files created or modified
+* Any blockers
+* Any deviations or required architecture clarification

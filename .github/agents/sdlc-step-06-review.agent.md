@@ -5,7 +5,7 @@ description: >
   conformance. Invoked by @sdlc Phase 6 or directly as @sdlc-step-06-review.
   Reads all files under dev/ plus impl-plan.md and architecture.md. Produces
   review notes in chat and applies safe auto-fixes inline.
-tools: [insert_edit_into_file', 'replace_string_in_file', 'create_file', 'apply_patch', 'get_terminal_output', 'open_file', 'run_in_terminal', 'ask_questions', 'get_errors', 'list_dir', 'read_file', 'file_search', 'grep_search', 'validate_cves', 'run_subagent']
+tools: ['insert_edit_into_file', 'replace_string_in_file', 'create_file', 'apply_patch', 'get_terminal_output', 'open_file', 'run_in_terminal', 'ask_questions', 'get_errors', 'list_dir', 'read_file', 'file_search', 'grep_search', 'validate_cves', 'run_subagent']
 user-invocable: true
 argument-hint: Optionally specify files or task IDs to focus the review
 ---

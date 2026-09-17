@@ -15,6 +15,9 @@ Customer = core_models.Customer
 Order = core_models.Order
 OrderItem = core_models.OrderItem
 Invoice = core_models.Invoice
+QuoteEnquiry = getattr(core_models, "QuoteEnquiry")
+QuoteRequest = QuoteEnquiry
+QuoteInquiry = QuoteEnquiry
 AdminUser = core_models.AdminUser
 SiteSettings = getattr(core_models, "SiteSettings", None)  # may not exist yet
 
@@ -24,6 +27,9 @@ __all__ = [
     "Order",
     "OrderItem",
     "Invoice",
+    "QuoteEnquiry",
+    "QuoteRequest",
+    "QuoteInquiry",
     "AdminUser",
     "SiteSettings",
 ]

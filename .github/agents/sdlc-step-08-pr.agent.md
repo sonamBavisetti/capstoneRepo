@@ -3,13 +3,12 @@ name: sdlc-step-08-pr
 description: >
   Use when: creating a GitHub pull request for the verified changes at the end
   of the SDLC pipeline. Invoked by @sdlc Phase 8 or directly as
-  @sdlc-step-08-pr. Reads the verification report, prepares a PR title/body,
-  and opens the PR in the target GitHub repository.
-tools: [read, edit, search, run_in_terminal]
+  @sdlc-step-08-pr. Reads the verification report, prepares a PR title/body, and
+  opens the PR in the target GitHub repository.
+tools: ['run_in_terminal', 'insert_edit_into_file', 'replace_string_in_file', 'create_file', 'apply_patch', 'get_terminal_output', 'open_file', 'ask_questions', 'get_errors', 'list_dir', 'read_file', 'file_search', 'grep_search', 'validate_cves', 'run_subagent']
 user-invocable: true
-argument-hint: "Branch name, target branch (default: main), and optional repo URL"
+argument-hint: 'Branch name, target branch (default: main), and optional repo URL'
 ---
-
 # SDLC Step 08 — Release Engineer
 
 You are a release engineer. Your job is to turn the completed and verified work into a GitHub pull request for this repository.

@@ -214,6 +214,67 @@ def index():
             color: var(--muted);
             line-height: 1.6;
           }
+          .quote-form {
+            background: rgba(255,255,255,0.7);
+            border: 1px solid var(--line);
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: 0 18px 40px rgba(70, 48, 36, 0.06);
+          }
+          .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+          }
+          .field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .field label {
+            color: var(--primary-dark);
+            font-size: 0.9rem;
+            font-weight: 700;
+          }
+          .field input, .field select, .field textarea {
+            width: 100%;
+            border: 1px solid var(--line);
+            background: rgba(255,255,255,0.8);
+            border-radius: 12px;
+            padding: 12px 14px;
+            font: inherit;
+            color: var(--text);
+          }
+          .field textarea {
+            min-height: 120px;
+            resize: vertical;
+          }
+          .submit-row {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+          }
+          .submit-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 999px;
+            padding: 13px 22px;
+            font-weight: 700;
+            cursor: pointer;
+          }
+          .form-message {
+            margin: 0;
+            font-size: 0.95rem;
+          }
+          .form-message.success {
+            color: #0d7a3a;
+          }
+          .form-message.error {
+            color: #a62b2b;
+          }
           footer {
             margin-top: 50px;
             padding-top: 24px;
@@ -238,7 +299,7 @@ def index():
               <a href="#about">About</a>
               <a href="#contact">Contact</a>
             </nav>
-            <button class="nav-btn">Get a quote</button>
+            <a class="nav-btn" href="#quote-form">Get a quote</a>
           </header>
 
           <section class="hero">
@@ -323,6 +384,60 @@ def index():
                 <p>Support for local businesses, schools, shops, and event organizers with tailored order planning.</p>
               </div>
             </div>
+          </section>
+
+          <section class="section" id="quote-form">
+            <div class="section-header">
+              <h2>Request a quote</h2>
+            </div>
+            <form id="quote-form-element" class="quote-form" novalidate>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="name">Name *</label>
+                  <input id="name" name="name" type="text" required placeholder="Enter your full name">
+                </div>
+                <div class="field">
+                  <label for="company">Company / Organization</label>
+                  <input id="company" name="company" type="text" placeholder="Your organization name">
+                </div>
+                <div class="field">
+                  <label for="mobile_number">Mobile Number *</label>
+                  <input id="mobile_number" name="mobile_number" type="tel" required placeholder="+91 98765 43210">
+                </div>
+                <div class="field">
+                  <label for="email">Email</label>
+                  <input id="email" name="email" type="email" placeholder="you@example.com">
+                </div>
+                <div class="field">
+                  <label for="product_category">Product / Category *</label>
+                  <input id="product_category" name="product_category" type="text" required placeholder="e.g. Office stationery">
+                </div>
+                <div class="field">
+                  <label for="required_quantity">Required Quantity</label>
+                  <input id="required_quantity" name="required_quantity" type="text" placeholder="e.g. 250 units">
+                </div>
+                <div class="field" style="grid-column: 1 / -1;">
+                  <label for="customization_requirements">Customization / Requirements</label>
+                  <textarea id="customization_requirements" name="customization_requirements" placeholder="Tell us about your requirements, materials, printing, or sizing preferences."></textarea>
+                </div>
+                <div class="field">
+                  <label for="preferred_contact_method">Preferred Contact Method</label>
+                  <select id="preferred_contact_method" name="preferred_contact_method">
+                    <option value="Call">Call</option>
+                    <option value="WhatsApp">WhatsApp</option>
+                    <option value="Email">Email</option>
+                  </select>
+                </div>
+                <div class="field" style="grid-column: 1 / -1;">
+                  <label for="additional_message">Additional Message</label>
+                  <textarea id="additional_message" name="additional_message" placeholder="Add any additional details or timelines."></textarea>
+                </div>
+              </div>
+              <div class="submit-row">
+                <button class="submit-btn" type="submit">Send enquiry</button>
+                <p id="quote-message" class="form-message" aria-live="polite"></p>
+              </div>
+            </form>
           </section>
 
           <footer id="contact">

@@ -94,6 +94,24 @@ class Invoice(Base):
     order = relationship("Order", back_populates="invoice")
 
 
+class QuoteEnquiry(Base):
+    __tablename__ = "quote_enquiries"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    name = Column(String(255), nullable=False)
+    company = Column(String(255))
+    mobile_number = Column(String(32), nullable=False)
+    email = Column(String(255))
+    product_category = Column(String(255), nullable=False)
+    required_quantity = Column(String(255))
+    customization_requirements = Column(Text)
+    preferred_contact_method = Column(String(50), default="Call")
+    additional_message = Column(Text)
+    status = Column(String(50), default="new")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class AdminUser(Base):
     __tablename__ = "admin_users"
 

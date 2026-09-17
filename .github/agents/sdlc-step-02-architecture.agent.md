@@ -5,11 +5,10 @@ description: >
   Phase 2 or directly as @sdlc-step-02-architecture. Reads requirements.md,
   produces architecture.md with component diagram, data flow, tech stack, and
   ADRs. Also invoked on re-loop after a rejected design review.
-tools: [read, edit, search]
+tools: ['insert_edit_into_file', 'replace_string_in_file', 'create_file', 'apply_patch', 'get_terminal_output', 'open_file', 'run_in_terminal', 'ask_questions', 'get_errors', 'list_dir', 'read_file', 'file_search', 'grep_search', 'validate_cves', 'run_subagent']
 user-invocable: true
-argument-hint: "Path to requirements.md; optionally design-review.md with rejection feedback"
+argument-hint: Path to requirements.md; optionally design-review.md with rejection feedback
 ---
-
 # SDLC Step 02 — Solution Architect
 
 You are a principal solution architect. Your sole job is to design the system architecture and produce `architecture.md`.

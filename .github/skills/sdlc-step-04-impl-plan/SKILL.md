@@ -1,64 +1,64 @@
 ---
-name: sdlc-step-04-impl-plan
-description: >
-  Use when: breaking down architecture into a detailed implementation plan.
-  Invoked by @sdlc Phase 4 or directly as @sdlc-step-04-impl-plan. Reads
-  architecture.md and requirements.md, produces impl-plan.md with ordered
-  tasks, file targets, and dependencies. Triggers: "implementation plan", "plan tasks", "write impl-plan.md".
----
 
-# SDLC Step 04 — Implementation Planner
+name: implementation-planning
+description: Break down an approved architecture into ordered, traceable implementation tasks.
+----------------------------------------------------------------------------------------------
 
-You are a lead engineer. Your sole job is to decompose the approved architecture into a concrete, ordered implementation plan and write `impl-plan.md`.
+# Implementation Planning Skill
 
-## Constraints
+## Purpose
 
-- DO NOT write any implementation code.
-- DO NOT deviate from the architecture in `architecture.md`.
-- DO NOT skip traceability — every task must reference the FR/NFR it satisfies.
-- ONLY plan files under `dev/` for Python and `test-automation/` for Playwright/TypeScript.
+Create a concrete implementation plan from the approved architecture and documented requirements.
 
-## Approach
+## Instructions
 
-1. Read `architecture.md` and `requirements.md`.
-2. Decompose the architecture into tasks.
-3. For each task, specify:
-   - Description
+1. Read `architecture.md` from the repository root.
+2. Read `requirements.md` from the repository root.
+3. Use the architecture as the source of truth for implementation planning.
+4. Identify the components, layers, modules, APIs, data models, and integrations that need to be implemented.
+5. Break the architecture into small, actionable implementation tasks.
+6. Assign each task a unique sequential ID such as `TASK-01`, `TASK-02`, etc.
+7. Group tasks logically by component or layer.
+8. Order tasks based on dependencies, placing foundational tasks before dependent tasks.
+9. For every task, define:
 
-## Output Format
+    * Task description
+    * Target files
+    * Dependencies
+    * Related FR/NFR
+    * Definition of Done
+10. Ensure every task is traceable to at least one FR or NFR whenever applicable.
+11. Identify implementation risks and provide a mitigation for each significant risk.
+12. Respect the project boundaries:
 
-## Summary
-<Overview of the implementation approach>
+    * Python implementation files must be under `dev/`.
+    * Playwright/TypeScript automation files must be under `test-automation/`.
+13. Do not write or modify implementation code.
+14. Do not introduce functionality that is not supported by the requirements or architecture.
+15. Do not redesign or change the approved architecture.
+16. Create or overwrite `impl-plan.md` in the repository root.
 
-## Task Breakdown
+## Planning Rules
 
-### TASK-01: <Title>
-- **Description**: …
-- **Target files**: `dev/…`
-- **Depends on**: none
-- **Satisfies**: FR-01, NFR-02
-- **DoD**: …
+* Keep tasks specific enough for a developer to execute.
+* Avoid combining unrelated implementation activities into one task.
+* Ensure task dependencies are valid and logically ordered.
+* Reference the exact expected file paths where possible.
+* Use the FR/NFR IDs from `requirements.md`; do not invent requirement IDs.
+* If a target file cannot be determined from the architecture, mark it as `To Be Determined` rather than inventing a structure.
+* Include testing-related implementation tasks only when they are defined or implied by the approved architecture and requirements.
+* Do not create tasks for architecture decisions that have already been finalized.
 
-## Skill Invocation
+## Expected Result
 
-- Before finalizing `impl-plan.md`, invoke supporting skills (`feature-inventory`, `project-recon`, `clarifying-scenarios`) to ensure the plan covers all features, modules, and environment constraints derived from requirements.
+Create `impl-plan.md` containing:
 
-### TASK-02: <Title>
-- **Description**: …
-- **Target files**: `dev/…`
-- **Depends on**: TASK-01
-- **Satisfies**: FR-02
-- **DoD**: …
+* Implementation summary
+* Ordered task breakdown
+* Task dependencies
+* FR/NFR traceability
+* Definition of Done for each task
+* Execution order
+* Risk register
 
-## Execution Order
-1. TASK-01
-2. TASK-02
-…
-
-## Risk Register
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|-----------|
-...
-```
-
-After writing the file, output a brief summary of the task count and key ordering decisions for the Phase 4 gate.
+The resulting plan must be detailed enough for the development phase to execute without requiring an architecture redesign.
