@@ -42,8 +42,7 @@ def hash_password(password: str) -> str:
         # Werkzeug's PBKDF2 + SHA256 fallback for CI/dev convenience
         return generate_password_hash(password)
 
-    logging.warning("No password hashing library available; storing plaintext is insecure")
-    return password  # last-resort (unsafe)
+    raise RuntimeError("No supported password hashing backend is available. Install argon2-cffi or use the app's configured dependency set.")
 
 
 def verify_password(password: str, password_hash: str) -> bool:

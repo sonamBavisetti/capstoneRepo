@@ -21,19 +21,16 @@ Base = declarative_base()
 
 
 def init_db():
-    """Create tables using models' metadata. Call during local setup or migrations.
+    """Create tables using models' metadata without destructive resets in production.
 
-    Ensure model modules are imported so their classes are registered with Base.metadata.
-
-    NOTE: This helper now drops all tables before creating them. This makes
-    repeated test runs idempotent for local development where an on-disk
-    SQLite DB is used (sqlite:///dev.db). Do NOT call this in production
-    environments where data loss would be unacceptable.
+    Local SQLite development may recreate tables for test isolation; production
+    deployments should rely on Alembic migrations instead of drop_all().
     """
     # Import models to register them with SQLAlchemy's Base metadata
     import dev.models  # noqa: F401
-    # Drop existing tables to provide a clean state for repeated local/test runs
-    Base.metadata.drop_all(bind=engine)
+
+    if os.getenv("APP_ENV", "development").lower() != "production":
+        Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
 

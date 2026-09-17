@@ -1,4 +1,6 @@
 ﻿Flask>=2.0
+FastAPI>=0.111.0
+uvicorn[standard]>=0.30.0
 SQLAlchemy>=1.4
 alembic
 psycopg2-binary
@@ -7,3 +9,4 @@ rq
 reportlab
 weasyprint
 python-dotenv
+argon2-cffi>=23.0.0
