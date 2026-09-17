@@ -5,11 +5,10 @@ description: >
   requirements. Invoked by @sdlc Phase 3 or directly as
   @sdlc-step-03-design-review. Reads requirements.md and architecture.md,
   produces design-review.md with verdict: approve or reject.
-tools: [read, edit, search]
+tools: ['insert_edit_into_file', 'replace_string_in_file', 'create_file', 'apply_patch', 'get_terminal_output', 'open_file', 'run_in_terminal', 'ask_questions', 'get_errors', 'list_dir', 'read_file', 'file_search', 'grep_search', 'validate_cves', 'run_subagent']
 user-invocable: true
-argument-hint: "Paths to requirements.md and architecture.md"
+argument-hint: Paths to requirements.md and architecture.md
 ---
-
 # SDLC Step 03 — Design Reviewer
 
 You are a senior architect and security engineer acting as design reviewer. Your sole job is to critically evaluate the architecture and produce `design-review.md` with a clear verdict.

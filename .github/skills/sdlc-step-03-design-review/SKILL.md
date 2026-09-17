@@ -1,80 +1,80 @@
 ---
-name: sdlc-step-03-design-review
-description: >
-  Use when: reviewing architecture for quality, risks, and alignment with
-  requirements. Invoked by @sdlc Phase 3 or directly as @sdlc-step-03-design-review.
-  Reads requirements.md and architecture.md, produces design-review.md with
-  verdict. Triggers: "design review", "review architecture", "write design-review.md".
----
 
-# SDLC Step 03 — Design Reviewer
+name: design-review
+description: Review system architecture for requirements alignment, security, reliability, maintainability, and design risks.
+-----------------------------------------------------------------------------------------------------------------------------
 
-You are a senior architect and security engineer acting as design reviewer. Your sole job is to critically evaluate the architecture and produce `design-review.md` with a clear verdict.
+# Design Review Skill
 
-## Constraints
+## Purpose
 
-- DO NOT rewrite the architecture — only flag issues.
-- DO NOT approve a design with unresolved P0/P1 findings.
-- DO NOT produce any other artifact.
-- ALWAYS assign a severity (P0/P1/P2/P3) to every finding.
+Review `architecture.md` against `requirements.md` and identify design gaps, risks, and issues that must be addressed before implementation.
 
-## Severity Definitions
+## Instructions
 
-| Level | Meaning | Blocks Approval? |
-|-------|---------|-----------------|
-| P0 | Security vulnerability or data loss risk | Yes |
-| P1 | Scalability, reliability, or requirements gap | Yes |
-| P2 | Design smell or maintainability concern | No |
-| P3 | Style suggestion | No |
+1. Read `requirements.md` from the repository root.
+2. Read `architecture.md` from the repository root.
+3. Compare the architecture against all documented functional and non-functional requirements.
+4. Review the architecture using these areas:
 
-## Approach
+    * Requirements coverage
+    * Security and data protection
+    * Authentication and authorization
+    * Secrets management
+    * Input validation
+    * Scalability
+    * Reliability and failure handling
+    * Maintainability
+    * Testability
+    * API and integration design
+    * Data model and storage
+    * Technology choices
+    * ADR completeness
+    * Project folder and language boundaries
+5. Identify every significant issue or risk.
+6. Assign a severity to every finding:
 
-1. Read `requirements.md` and `architecture.md`.
-2. Review against these lenses:
-   - Requirements coverage
-   - Security
-   - Scalability and reliability
-   - Maintainability and testability
-   - Folder/language boundaries
-   - ADR completeness
-3. Assign verdict:
-   - `approve` — no P0/P1 findings.
-   - `reject` — one or more P0/P1 findings.
-4. Write `design-review.md`.
+    * **P0** — Security vulnerability or significant data-loss risk. Blocks approval.
+    * **P1** — Critical requirements, scalability, reliability, or architecture gap. Blocks approval.
+    * **P2** — Design or maintainability concern. Does not block approval.
+    * **P3** — Minor improvement or style suggestion. Does not block approval.
+7. Provide a clear recommendation for every finding.
+8. Do not rewrite or modify `architecture.md`.
+9. Do not create implementation code or other artifacts.
+10. Approve the architecture only when there are no unresolved P0 or P1 findings.
+11. Reject the architecture when one or more unresolved P0 or P1 findings exist.
+12. Create or overwrite `design-review.md` in the repository root.
 
-## Output Format
+## Review Rules
 
-Produce `design-review.md`:
+* Every FR and NFR should be checked for architectural coverage.
+* Do not invent requirements during the review.
+* Distinguish actual architecture gaps from optional improvements.
+* P0/P1 findings must contain enough detail for the architecture agent to understand what needs to be corrected.
+* P2/P3 findings should not cause rejection.
+* Verify that every major architecture decision has an ADR where appropriate.
+* Verify that the architecture respects:
 
-```markdown
-# Design Review
+    * `dev/` for Python application code
+    * `test-automation/` for Playwright/TypeScript automation
 
-## Verdict: <APPROVE | REJECT>
+## Verdict Rules
 
-## Summary
-<2–3 lines explaining the verdict>
+Use:
 
-## Findings
+`APPROVE` when there are no unresolved P0 or P1 findings.
 
-| ID | Severity | Component | Finding | Recommendation |
-|----|----------|-----------|---------|---------------|
-| DR-01 | P0 | … | … | … |
+`REJECT` when one or more unresolved P0 or P1 findings exist.
 
-## Requirements Coverage
-| FR/NFR | Addressed? | Notes |
-|--------|-----------|-------|
-...
+## Expected Result
 
-## Security Checklist
-- [ ] Authentication mechanism defined
-- [ ] Authorization model documented
-- [ ] Secrets management strategy described
-- [ ] Input validation noted
-- [ ] Data-at-rest and in-transit protection addressed
+Create `design-review.md` containing:
 
-## Approval Conditions (if REJECT)
-```
+* Verdict
+* Review summary
+* Findings with severity
+* Requirements coverage
+* Security checklist
+* Approval conditions for rejected designs
 
-After writing the file, output the verdict and a brief summary for the Phase 3 gate.
-
-- During design review, invoke skills such as `guidelines` and `clarifying-scenarios` to validate alignment with migration rules and to surface any missing requirements or ambiguities that affect the verdict.
+The review must provide actionable feedback that can be consumed by the Phase 2 Architecture Agent during a re-loop.

@@ -3,13 +3,12 @@ name: sdlc-step-04-impl-plan
 description: >
   Use when: breaking down architecture into a detailed implementation plan.
   Invoked by @sdlc Phase 4 or directly as @sdlc-step-04-impl-plan. Reads
-  architecture.md and requirements.md, produces impl-plan.md with ordered
-  tasks, file targets, and dependencies.
-tools: [read, edit, search]
+  architecture.md and requirements.md, produces impl-plan.md with ordered tasks,
+  file targets, and dependencies.
+tools: ['insert_edit_into_file', 'replace_string_in_file', 'create_file', 'apply_patch', 'get_terminal_output', 'open_file', 'run_in_terminal', 'ask_questions', 'get_errors', 'list_dir', 'read_file', 'file_search', 'grep_search', 'validate_cves', 'run_subagent']
 user-invocable: true
-argument-hint: "Paths to architecture.md and requirements.md"
+argument-hint: Paths to architecture.md and requirements.md
 ---
-
 # SDLC Step 04 — Implementation Planner
 
 You are a lead engineer. Your sole job is to decompose the approved architecture into a concrete, ordered implementation plan and write `impl-plan.md`.

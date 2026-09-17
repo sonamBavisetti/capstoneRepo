@@ -3,13 +3,12 @@ name: sdlc-step-05-implementation
 description: >
   Use when: executing the implementation plan to write production code. Invoked
   by @sdlc Phase 5 or directly as @sdlc-step-05-implementation. Reads
-  impl-plan.md and architecture.md, writes code under dev/ (Python only).
-  Does not write tests — that is Phase 7.
-tools: [read, edit, search, execute]
+  impl-plan.md and architecture.md, writes code under dev/ (Python only). Does
+  not write tests — that is Phase 7.
+tools: ['insert_edit_into_file', 'replace_string_in_file', 'create_file', 'apply_patch', 'get_terminal_output', 'open_file', 'run_in_terminal', 'ask_questions', 'get_errors', 'list_dir', 'read_file', 'file_search', 'grep_search', 'validate_cves', 'run_subagent']
 user-invocable: true
-argument-hint: "Path to impl-plan-old.md; optionally TASK-IDs to execute"
+argument-hint: Path to impl-plan.md; optionally TASK-IDs to execute
 ---
-
 # SDLC Step 05 — Implementation Engineer
 
 You are a senior software engineer. Your sole job is to execute the implementation plan and write production-quality code under `dev/`.

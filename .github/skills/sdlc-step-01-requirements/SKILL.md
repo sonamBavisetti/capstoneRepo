@@ -1,75 +1,47 @@
 ---
-name: sdlc-step-01-requirements
-description: >
-  Use when: processing a user story into structured requirements. Invoked by
-  @sdlc Phase 1 or directly as @sdlc-step-01-requirements. Reads user-story.md,
-  produces requirements.md with acceptance criteria, stakeholders, and scope.
-  Triggers: "generate requirements", "requirements analysis", "extract requirements", "write requirements.md".
----
 
-# SDLC Step 01 — Requirements Analyst
+name: requirements-analysis
+description: Transform a user story into structured functional and non-functional requirements.
+-----------------------------------------------------------------------------------------------
 
-You are a senior business analyst. Your job is to transform a raw user story into a structured `requirements.md` document.
+# Requirements Analysis Skill
 
-## Constraints
+## Purpose
 
-- DO NOT write code.
-- DO NOT make architecture decisions.
-- DO NOT produce any artifact other than `requirements.md`.
-- ONLY derive requirements from the provided user story — do not invent scope.
+Analyze the provided user story and create a structured `requirements.md` artifact for the next SDLC phase.
 
-## Approach
+## Instructions
 
-1. Read `user-story.md` from the workspace root. If missing, ask the user for the story text.
-2. Extract:
-   - Problem statement / business goal
-   - Actors / stakeholders
-   - Functional requirements (numbered `FR-01`, `FR-02`, …)
-   - Non-functional requirements (`NFR-01`, `NFR-02`, …)
-   - Acceptance criteria (Given/When/Then per FR)
-   - Out-of-scope items
-   - Open questions / assumptions
-3. Write `requirements.md` to the workspace root.
-4. Summarize what was captured and flag any ambiguities.
+1. Read `user-story.md` from the repository root.
+2. Identify the business goal and problem being addressed.
+3. Identify the relevant actors and stakeholders.
+4. Extract functional requirements and assign IDs using `FR-01`, `FR-02`, etc.
+5. Extract non-functional requirements and assign IDs using `NFR-01`, `NFR-02`, etc.
+6. Map the available acceptance criteria to the relevant functional requirements using Given/When/Then format.
+7. Identify explicitly stated out-of-scope items.
+8. Identify assumptions and open questions without inventing requirements.
+9. Preserve the intent of the original user story.
+10. Do not add requirements that are not supported by the user story.
+11. Create or overwrite `requirements.md` in the repository root.
+12. Ensure the generated document is clear and structured for downstream SDLC agents.
 
-## Output Format
+## Expected Result
 
-Produce `requirements.md` with these sections:
+Create `requirements.md` containing:
 
-```markdown
-# Requirements
+* Problem Statement
+* Stakeholders
+* Functional Requirements
+* Non-Functional Requirements
+* Acceptance Criteria
+* Out of Scope
+* Open Questions / Assumptions
 
-## Problem Statement
-...
+## Quality Rules
 
-## Stakeholders
-| Role | Responsibility |
-|------|---------------|
-...
-
-## Functional Requirements
-| ID | Description | Priority |
-|----|-------------|----------|
-...
-
-## Non-Functional Requirements
-| ID | Description | Metric |
-|----|-------------|--------|
-...
-
-## Acceptance Criteria
-### FR-01: <title>
-- Given … When … Then …
-
-## Out of Scope
-- …
-
-## Open Questions / Assumptions
-- …
-```
-
-After writing the file, output a brief summary of what was captured so the orchestrator can present the Phase 1 gate.
-
-## Skill Invocation
-
-- Invoke supporting skills to enhance and clarify the requirement before finalizing `requirements.md`. Recommended skills: `clarifying-scenarios` (elicit missing context and required fields) and `feature-inventory` (extract feature-level details from code or descriptions). Run them as subagents and incorporate their outputs into the final artifact.
+* Use unique and sequential requirement IDs.
+* Keep each requirement specific and testable where possible.
+* Keep acceptance criteria traceable to the corresponding functional requirement.
+* Mark information as `Not Specified` when it is not available.
+* Do not make architecture, technology, or implementation decisions.
+* Do not generate code or test cases.
