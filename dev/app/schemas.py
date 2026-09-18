@@ -71,3 +71,52 @@ class InvoiceResponse(BaseModel):
 class AdminLogin(BaseModel):
     username: str
     password: str
+
+
+class SiteSettingsOut(BaseModel):
+    company_name: str
+    tagline: str
+    phone: str
+    email: str
+    address: str
+    city: str
+    state: str
+    pincode: str
+
+
+class CartItemIn(BaseModel):
+    product_id: str
+    quantity: int = Field(..., gt=0)
+
+
+class CartRequest(BaseModel):
+    items: List[CartItemIn]
+
+
+class CartLineOut(BaseModel):
+    product_id: str
+    sku: str
+    name: str
+    quantity: int
+    unit_price: float
+    line_total: float
+
+
+class CartSummaryOut(BaseModel):
+    items: List[CartLineOut]
+    subtotal: float
+    shipping: float = 0.0
+    total: float
+    currency: str = "INR"
+
+
+class AdminStatusUpdate(BaseModel):
+    status: str = Field(..., pattern="^(pending|confirmed|processed|cancelled|PENDING|CONFIRMED|PROCESSED|CANCELLED)$")
+
+
+class AdminOrderOut(BaseModel):
+    order_id: str
+    customer_name: str
+    total_amount: float
+    order_status: str
+    payment_status: str

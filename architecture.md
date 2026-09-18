@@ -2,195 +2,304 @@
 
 ## Overview
 
-Vinayaka File Works storefront: a lightweight web application that enables customers to browse products, add items to a cart, complete checkout (Cash on Delivery or Online payment), and download PDF invoices matching the provided sample. Staff can review orders and mark them as processed via a protected admin interface.
+This architecture supports the Vinayaka File Works storefront, order workflow, invoice generation, and protected admin operations described in requirements.md. The system is intentionally limited to the storefront use case: product browsing, cart and checkout, order persistence, downloadable PDF invoices, and order processing by an authenticated admin. It does not include unrelated hotel/booking/domain features and is scoped to the actual business workflow requested by the stakeholders.
 
-This document defines a minimal-yet-production-ready architecture that follows repository constraints: Python server code lives in dev/, Playwright TypeScript tests live in test-automation/, and frontend code (React) is colocated in frontend/ (or built as a static artifact). The design addresses prior design-review feedback by specifying admin authentication, secrets handling, an asynchronous invoice lifecycle, database concurrency controls, backups/encryption, and test alignment.
+The solution uses a small but production-aware Python backend (dev/) with a PostgreSQL primary database, Redis for session and queue state, object storage for invoice PDFs, and a separate Playwright + TypeScript test suite under test-automation/. The design follows the design-review findings by fixing the admin auth model, enforcing no-secret repository policies, clarifying the async invoice lifecycle, documenting transactional inventory controls, and defining backup and encryption requirements.
 
-## Component Diagram (ASCII / Mermaid)
+## Component Diagram (Mermaid)
 
 ```mermaid
 flowchart LR
-  Browser[Browser (Customer)] -->|HTTPS| Frontend[React SPA - storefront]
-  Browser -->|HTTPS| AdminUI[React SPA - admin]
-  Frontend -->|HTTPS REST| API[Backend API - FastAPI]
-  AdminUI -->|HTTPS REST| API
-  API -->|SQL| DB[(Postgres)]
-  API -->|enqueue job| Queue[(Redis + RQ)]
-  Queue -->|worker| Worker[Background Worker]
-  Worker -->|generate| PDF[ReportLab PDF generator]
-  Worker -->|store| ObjectStore[(S3 / MinIO)]
-  API -->|webhook / REST| Payment[Payment Provider (Stripe)]
-  API -->|auth/session| Auth[Session Store (Redis)]
-  API -->|logs/metrics| Observability[Logging & Monitoring]
+  Customer[Customer Browser] -->|HTTPS| Storefront[Storefront UI]
+  Admin[Admin Browser] -->|HTTPS| AdminUI[Admin UI]
+
+  Storefront -->|REST / JSON| API[FastAPI Backend]
+  AdminUI -->|REST / JSON| API
+
+  API -->|SQL + transactions| DB[(PostgreSQL)]
+  API -->|session data| Redis[(Redis)]
+  API -->|enqueue invoice job| Queue[(Redis Queue)]
+  Queue -->|worker| Worker[Invoice Worker]
+  Worker -->|render PDF| PDF[ReportLab PDF Generator]
+  Worker -->|upload PDF| ObjectStore[(S3 / MinIO)]
+
+  API -->|checkout/payment session| Payment[Payment Provider]
+  Payment -->|webhook| API
+
+  API -->|metrics/logs| Observability[Monitoring + Logs]
+  AdminUI -->|secure cookie session| API
 ```
 
-Data flow & Order lifecycle summary:
+## Data Flow
 
-Customer -> Frontend -> POST /api/orders -> Backend API
-
-1. API validates the request and attempts a short-lived inventory reservation (see Inventory Reservation below). API creates an Order record in the DB with status "pending" and payment_status "pending" inside a transaction. The creation is tied to an Idempotency-Key header (see Idempotency section) to avoid duplicate orders from retries.
-
-2. For ONLINE payments: API creates a payment session with the payment provider (Stripe adapter) and returns the session info to the frontend. The final order confirmation only occurs after the payment provider notifies the system (webhook) that the payment succeeded. The webhook handler verifies the provider signature, updates payment_status to "paid" and order_status to "confirmed" (transactionally), and then enqueues final invoice PDF generation (worker).
-
-3. For Cash on Delivery (COD): after the order is persisted and basic validation completes, the API marks the order_status as "confirmed" and enqueues final invoice generation immediately (or at admin confirmation if business requires).
-
-4. Invoice generation: Workers generate the final invoice PDF only when the order is in a final/confirmed state (paid for ONLINE flows or confirmed for COD). Worker stores the PDF in object storage and updates the Invoice record: status transitions from pending -> ready|failed. Frontend may poll GET /api/orders/:id/invoice or GET /api/orders/:id to determine invoice readiness and fetch a signed URL to download the PDF when ready.
-
-Idempotency (Order/Payment):
-- Require an Idempotency-Key header on POST /api/orders and on payment creation endpoints. The backend persists the Idempotency-Key (Redis or DB) with a TTL (24 hours) mapping to the canonical order_reference and returned response. Repeated requests with the same key return the original order response rather than creating duplicates.
-
-Inventory Reservation (locking algorithm):
-- Primary strategy: attempt a fast reservation using Redis (reserve a quantity token per product) with a reservation TTL of 10 minutes. Reservation flow:
-  - On POST /api/orders: reserve desired quantities in Redis (atomic decrement of available reservation tokens). If the reservation succeeds, create DB Order in 'pending' state without decrementing the authoritative "available_quantity" yet.
-  - Start payment flow (ONLINE) or mark confirmed (COD). If payment succeeds within reservation TTL, finalize the order in a DB transaction that decrements available_quantity (SELECT ... FOR UPDATE) and sets order_status to confirmed.
-  - If reservation TTL expires before confirmation, reservation is released and the order must be marked expired / failed; the customer must retry.
-- Fallback: if Redis is unavailable, use a DB transactional approach with SELECT ... FOR UPDATE to lock product rows and verify/decrement stock within the same transaction before creating the confirmed order. Documented fallbacks ensure no double-selling.
-- Monitoring: capture reservation TTL expirations, reservation failures, and lock contention metrics; add stress tests to validate behavior under concurrent checkout.
-
-Product-list caching & performance plan:
-- Use Redis short TTL cache for GET /api/products (recommended TTL 30s) with cache busting on product updates. Serve images via CDN (CloudFront) or S3 presigned URLs cached by CDN.
-- Invalidation: on product updates, publish an event (Pub/Sub or Redis pub/sub) to invalidate relevant cache keys or increment a version token used in cache keys.
-- Load testing: define a k6 or locust scenario that simulates realistic browse+checkout traffic. Acceptance criterion: p95 product-list latency < 500ms under expected concurrency (define expected concurrent users in project plan). Attach a load test report as part of Phase 3 deliverables.
-
-SiteSettings / CompanyProfile (authoritative content):
-- Add a SiteSettings table (company_name, address_lines, phone, logo_s3_key, invoice_footer_template) used by the frontend and PDF generator to ensure consistent company details across homepage and invoices.
-
-CI / Secrets enforcement:
-- Add `.env` to `.gitignore` and configure a CI job that runs a secret scanner (e.g., detect-secrets or GitHub CodeQL secret scanning) as part of PR checks. The job should fail if secrets are detected. Document this in the CI/CD section and add a pre-commit hook template for local scanning.
-
-Load & concurrency artifacts (required for Phase 4):
-- Provide a product-list load test report (k6/locust) demonstrating p95 < 500ms.
-- Provide an inventory concurrency stress test (script + results) showing acceptable levels of reservation success and low double-sell probability.
-
-Frontend polling behaviour:
-- Frontend should poll invoice status with exponential backoff or subscribe to a websocket/notification if available. Do not display a signed invoice URL until Invoice.status == ready.
-
-
+1. Customer loads the homepage and product catalog from the storefront UI.
+2. Product list and detail requests are served from the API and optionally cached in Redis for a short TTL to meet the <500 ms product-list response target.
+3. On checkout, the frontend sends a validated order payload to POST /api/orders with an Idempotency-Key header.
+4. The backend begins a database transaction, validates cart items, checks product availability, locks affected product rows, and creates the order plus order items. For online payments, the order remains in a pending state until a successful payment webhook confirms payment; for COD, the order is marked confirmed immediately.
+5. For a confirmed order, the backend enqueues an invoice-generation job in Redis Queue.
+6. The invoice worker renders the PDF, stores it in object storage, and updates the invoice status to ready or failed with retry/error handling.
+7. The storefront and admin UI both poll invoice metadata or use a signed URL once the invoice is ready and allow download.
+8. Admin users log in through a protected server-side session; they may view submitted orders and update a processed flag.
 
 ## Components
 
 | Component | Responsibility | Technology |
 |-----------|---------------|------------|
-| Frontend (Customer) | Homepage, product listing, cart, checkout, order confirmation, invoice download | React (Vite), React Router, Tailwind (or CSS)
-| Admin UI | Order list, view order, mark processed, admin login | React (same codebase or small static app served under /admin)
-| Backend API | Validation, order persistence, payment orchestration, invoice endpoints, admin endpoints | FastAPI, Pydantic, SQLAlchemy
-| Database | Transactional data: products, orders, invoices, admin users | PostgreSQL (prod), SQLite (dev)
-| Background Worker | Asynchronous PDF generation, webhook processing, retries/DLQ | RQ (Redis) or Celery
-| PDF Generation | Render invoice PDFs matching sample, deterministic server-side templates | ReportLab (Python) — ADR documented
-| Object Storage | Store generated PDFs and uploaded assets; serve via signed URLs | AWS S3 (prod), MinIO/local (dev)
-| Payment Integration | Create payment sessions, process webhooks, verify signatures | Stripe (recommended) via adapter pattern
-| Auth/Session Store | Admin session storage, rate-limiting backstop | Redis (sessions, rate limiting counters)
-| CI/CD & Tests | Unit tests, migrations check, Playwright E2E in TypeScript | GitHub Actions, pytest (dev/), Playwright TS (test-automation/)
-| Observability | Logs, metrics, health checks, alerts | CloudWatch/Datadog or equivalent
+| Storefront UI | Homepage, product catalog, cart, checkout, confirmation, invoice download | React + Vite + TypeScript (or static HTML with minimal JS if adopted) |
+| Admin UI | Order list, order details, admin login, status processing | React + Vite + TypeScript |
+| API Layer | Request validation, business logic, auth checks, payment orchestration, invoice status APIs | FastAPI, Pydantic, SQLAlchemy |
+| Transactions & Locking | Order creation, inventory updates, atomic status transitions | PostgreSQL transactions, SELECT ... FOR UPDATE, optimistic fallback |
+| Session Store | Admin auth session storage, rate-limit counters | Redis |
+| Queue / Worker | Async invoice generation, retries, failure handling | Redis Queue (RQ) or Celery |
+| Invoice Rendering | Deterministic PDF generation to match sample bill layout | ReportLab |
+| Object Storage | Invoice PDFs and uploaded product assets | S3 in production, MinIO in local dev |
+| Payment Adapter | Checkout initiation and webhook verification for online payment | Stripe or equivalent provider adapter |
+| Database | Product catalog, customer/order records, invoice metadata, admin credentials | PostgreSQL (production), SQLite (dev) |
+| Observability | Logs, metrics, alerts, uptime checks | OpenTelemetry or CloudWatch/Datadog |
+| Test Automation | Browser validation for storefront/admin/invoice flows | Playwright + TypeScript under test-automation/ |
 
-Enforcement: All Python server code must live in dev/; Playwright TypeScript code must live in test-automation/. This avoids cross-language test placement issues flagged in the design review.
+## Data Model
 
-## Data Model (summary)
+The data model focuses on four core domains: catalog, customer orders, invoice lifecycle, and admin access.
 
-- Product: id, sku, name, description, unit_price_cents, image_url, quantity_available, timestamps
-- Customer: id, name, phone, email, address fields, timestamps
-- Order: id, order_reference, customer_id, total_amount_cents, payment_method, payment_status, order_status, timestamps
-- OrderItem: id, order_id, product_id, sku, name, unit_price_cents, quantity, line_total_cents
-- Invoice: id, order_id, invoice_number, invoice_date, pdf_path (S3 key), status (pending|ready|failed), created_at
-- AdminUser: id, username, password_hash, role, mfa_enabled, created_at
+- Product
+- product_id (PK)
+- sku (unique)
+- name
+- description
+- unit_price_cents
+- available_quantity
+- image_url (or storage key)
+- created_at / updated_at
 
-Key constraints:
-- Order creation and inventory decrement are performed in a single DB transaction with row-level locking (SELECT ... FOR UPDATE) to prevent double-selling.
-- OrderItem stores denormalized product name/price to retain historical accuracy.
+- Customer
+- customer_id (PK)
+- full_name
+- phone_number
+- email
+- address_line_1, address_line_2, city, state, pincode
+- created_at
 
-## API Surface (high-level)
+- Order
+- order_id (PK)
+- order_reference (unique)
+- customer_id (FK)
+- payment_method (cod | online)
+- payment_status (pending | paid | failed | refunded)
+- order_status (pending | confirmed | processed | cancelled)
+- subtotal_cents
+- shipping_cents
+- total_cents
+- created_at / updated_at
 
-| Endpoint / Event | Method | Purpose / Consumer |
-|------------------|--------|--------------------|
-| GET /api/products | GET | Product list (frontend)
-| GET /api/products/:id | GET | Product detail
-| POST /api/cart | POST | Optional persisted cart
-| POST /api/orders | POST | Submit checkout (frontend) — returns order_reference and order status
-| GET /api/orders/:id | GET | Order detail (frontend / admin)
-| GET /api/orders/:id/invoice | GET | Invoice metadata (status) or redirect to signed S3 URL
-| GET /api/orders/:id/invoice/download | GET | (Optional) proxy download endpoint returning PDF stream
-| PUT /api/orders/:id/status | PUT | Admin — update status (mark processed)
-| POST /api/payments/create-session | POST | Start online payment (frontend)
-| POST /api/payments/webhook | POST | Payment provider webhook (verify signature)
-| POST /api/admin/login | POST | Admin login — server sets secure HttpOnly session cookie
-| POST /api/admin/logout | POST | Destroy admin session
+- OrderItem
+- order_item_id (PK)
+- order_id (FK)
+- product_id (FK)
+- sku_snapshot
+- product_name_snapshot
+- unit_price_cents
+- quantity
+- line_total_cents
 
-Notes:
-- POST /api/orders enqueues async work for PDF generation. APIs return structured error objects and use consistent HTTP status codes.
-- Webhook endpoints validate provider signatures, and payment POSTs require Idempotency-Key handling (stored in Redis for 24h).
+- Invoice
+- invoice_id (PK)
+- order_id (FK)
+- invoice_number (unique)
+- issued_at
+- status (pending | generating | ready | failed)
+- storage_key
+- created_at / updated_at
 
-## Technology Stack (summary & rationale)
+- AdminUser
+- admin_user_id (PK)
+- username (unique)
+- password_hash (Argon2id hash)
+- role (admin | superadmin)
+- mfa_enabled
+- last_login_at
+- created_at / updated_at
+
+- SiteSettings
+- setting_key
+- setting_value
+- used for company name, address, phone number, logo storage key, invoice footer text, and other shared storefront/invoice metadata.
+
+Key relationships:
+- One customer has many orders.
+- One order has many order items.
+- One order has one invoice record.
+- One product may appear in many order items.
+- Admin users are isolated from customer workflows and only access protected admin routes.
+
+Inventory and transactional rules:
+- Order creation occurs inside a DB transaction with row-level locking on affected product rows.
+- Quantity checks happen before confirmation of the order and before stock is decremented.
+- For online payment, the order is created in a pending state and is only confirmed after a valid payment webhook; if the payment fails or the payment session expires, the order fails and stock is released.
+- For COD, stock is decremented only after the order is confirmed; if confirmation fails or is cancelled, the reservation is released.
+- If a product row cannot be locked, the API returns a retryable 409 or 423 response and the client retries. This prevents oversell under concurrent checkouts.
+
+## API Surface
+
+| Endpoint / Event | Method | Consumer |
+|------------------|--------|----------|
+| GET /api/site-settings | GET | Storefront + admin |
+| GET /api/products | GET | Customer storefront |
+| GET /api/products/:id | GET | Customer storefront |
+| POST /api/cart | POST | Customer storefront |
+| POST /api/orders | POST | Customer storefront |
+| GET /api/orders/:id | GET | Customer storefront + admin |
+| GET /api/orders/:id/invoice | GET | Customer storefront |
+| POST /api/payments/create-session | POST | Customer storefront |
+| POST /api/payments/webhook | POST | Payment provider |
+| POST /api/admin/login | POST | Admin UI |
+| POST /api/admin/logout | POST | Admin UI |
+| GET /api/admin/orders | GET | Admin UI |
+| PATCH /api/admin/orders/:id/status | PATCH | Admin UI |
+| GET /api/admin/health | GET | Operations |
+
+Async invoice lifecycle events:
+- invoice.created
+- invoice.generating
+- invoice.ready
+- invoice.failed
+- invoice.retry_scheduled
+
+The workflow is intentionally asynchronous to avoid blocking checkout for invoice rendering, which can be slower or dependent on generated content and object storage writes.
+
+## Technology Stack
 
 | Layer | Technology | Rationale |
 |-------|-----------|-----------|
-| Frontend | React + Vite, Tailwind | Fast iteration, familiar ecosystem, static hosting options
-| Backend | FastAPI (Python), Pydantic, SQLAlchemy | Fast development, clear validation, Python ecosystem for PDF
-| DB | PostgreSQL (RDS / managed) | ACID for order/inventory; reliable for transactional workloads
-| Migrations | Alembic | Standard Python migration tool; CI validation
-| PDF | ReportLab (server-side) | Pure-Python, minimal system deps (see ADR)
-| Queue | Redis + RQ (or Celery if needed) | Lightweight async processing and retries
-| Object Storage | S3 (prod), MinIO (dev) | Durable, multi-instance friendly
-| Auth | Server-side sessions (Redis) + optional JWT adapters | Sessions simplify admin flows and CSRF protection
-| Payment | Stripe adapter (test mode) | Strong sandbox and webhooks; adapter keeps provider pluggable
-| Tests | pytest (dev/), Playwright TypeScript (test-automation/) | Aligns with SDLC constraints
-| CI/CD | GitHub Actions | CI runs migrations check, unit tests, and Playwright E2E in separate jobs
+| Backend application | Python + FastAPI | Strong validation, Python ecosystem, easy integration with PDF and queue workloads |
+| ORM / database access | SQLAlchemy | Parameterized query support, transactional safety, migration-friendly |
+| Primary database | PostgreSQL | ACID compliance and proven order/inventory reliability |
+| Migration tooling | Alembic | Versioned schema changes and CI validation |
+| Session management / queue | Redis | Server-side admin sessions, rate-limit counters, and async job queue |
+| Invoice generation | ReportLab | Deterministic server-side PDF output for layout matching |
+| Object storage | S3 (production), MinIO (local) | Durable storage for generated PDFs and product assets |
+| Frontend | React + Vite + TypeScript | Responsive UI, static build deployment, developer tooling |
+| Admin auth | Argon2id + secure HTTP-only session cookie | Proven password hashing and safer server-side session handling |
+| Payment integration | Provider adapter (recommended Stripe) | Provider abstraction keeps payment logic isolated and testable |
+| Tests | Playwright + TypeScript under test-automation/ | Browser automation matches the SDLC requirement and supports invoice/admin flows |
+| Dev/CI validation | pytest (Python), pre-commit scanning, secret-scanning in CI | Enforces code quality and secret hygiene |
 
-## Security Considerations (detailed)
-- Secrets: do not commit .env. Add `.env` to `.gitignore`. Use AWS Secrets Manager / GitHub Actions secrets / Vault for production secrets. Enforce secret scanning in CI and pre-commit hooks.
-- Transport: TLS 1.2+ (prefer TLS 1.3) everywhere; HSTS enabled in production.
-- Auth: Argon2id for password hashing (recommended starter params documented and tuned to infra). Admin sessions stored server-side in Redis; cookies set with HttpOnly and Secure. Account lockout after 5 failures; rate-limit login endpoints per IP and per account. Optional TOTP-based MFA.
-- Payment: Use provider tokenization; never handle raw card data. Require Idempotency-Key for payment creation. Validate webhooks by signature.
-- Input validation & DB safety: Pydantic for request validation and SQLAlchemy with parameterized queries. Order/inventory modifications wrapped in DB transactions and row locks.
-- Least privilege: DB credentials with minimal privileges; S3 buckets with restricted access; signed URLs for downloads.
-- Logging & auditing: immutable logs for payments and order state transitions. Redact sensitive PII from general logs.
+## Security Considerations
+
+- Secrets handling
+- No .env file is committed to version control.
+- Secret files are excluded via .gitignore and CI blocks additions to tracked secret files.
+- Production secrets are stored in a managed secret manager such as AWS Secrets Manager, Azure Key Vault, or a similar provider.
+- CI pipeline runs secret scanning before merge using tools like detect-secrets, gitleaks, or equivalent vendor scanning. Local pre-commit hooks are also recommended.
+
+- Admin authentication and authorization
+- Password hashes use Argon2id (not a weaker legacy algorithm such as MD5 or SHA-1).
+- Admin sessions are stored server-side in Redis and issued via a secure, HTTP-only, SameSite=Lax or Strict cookie; Secure flag is required in production over HTTPS.
+- Login API rate limits are enforced per IP and per account; failed login attempts trigger account lockout after a small threshold (for example 5 attempts within 15 minutes).
+- Admin routes require authenticated session and authorization checks; role-based access denies non-admin users from order processing actions.
+- MFA may be enabled for privileged admin roles, but it is optional in MVP and should be enforced for superadmin accounts.
+
+- Input validation and SQL safety
+- All inbound request payloads are validated with Pydantic models.
+- All database access uses parameterized SQL / ORM queries; raw SQL is avoided.
+- Order items are validated against product stock, pricing rules, and customer inputs before confirmation.
+- Payment webhook verification must validate provider signatures and use idempotency keys to prevent double-processing.
+
+- Data protection and encryption
+- All production traffic uses TLS 1.2+ (preferably 1.3) with HSTS enabled.
+- Database encryption at rest is enabled through the managed provider.
+- Object storage buckets are encrypted at rest; access is restricted through IAM roles and signed URLs for invoice downloads.
+- Audit logs are created for status changes, payment results, admin sessions, and invoice generation failures; logs do not contain raw secrets or full card data.
+
+- Backup and retention
+- PostgreSQL backups run daily with continuous PITR or point-in-time recovery enabled.
+- Weekly or monthly snapshots are retained according to a defined period (for example 30-90 days) and restored in quarterly drills.
+- Invoice PDFs and supporting metadata are retained according to business/legal retention periods; historical data is not deleted until a documented retention policy is approved.
 
 ## Scalability & Reliability
-- Stateless API instances behind LB, autoscaled. Sessions in Redis and DB as single source-of-truth.
-- Background workers scale horizontally; queue depth monitored and worker counts adjusted automatically.
-- Database: managed Postgres with periodic backups (daily), PITR enabled; snapshots retained 30 days; cross-region weekly copy retained 90 days. Restore drills quarterly.
-- CDN for static assets and signed S3 URLs for PDFs to minimize backend bandwidth.
-- Monitoring: request latency, error rate, queue depths, worker failures, payment failure rates. Alerts for service degradation.
-- Cache: short TTL Redis cache for product list (invalidate on updates) to help satisfy product-list latency SLA.
 
-## Migration & Deployment Notes
-- Local dev: SQLite & local filesystem or MinIO; `.env` for local config (not committed).
-- CI: run Alembic migrations against a disposable Postgres container to validate migrations. Run unit tests (dev/) and Playwright tests (test-automation/) in separate CI jobs.
-- Production: managed Postgres (RDS/Azure Database), S3, Redis (managed), deployed services to container platform or PaaS (Render/Heroku/Fly) with environment variables injected from secret manager.
+- Stateless application design: the API layer runs behind a load balancer and can scale horizontally.
+- Redis-based session and queue services can be clustered or managed independently from the app tier.
+- Inventory locking is controlled with database row locking and transaction boundaries to prevent overselling under concurrent order creation.
+- Async invoice generation isolates slow PDF work from order submission latency, protecting checkout availability.
+- Object storage supports multi-instance deployments without local disk coupling.
+- Monitoring covers request latency, 500x rates, queue depth, payment webhook failures, stock reservation errors, and worker retries.
+- Product listing is cacheable with a short Redis TTL and invalidated on stock price updates to help satisfy the <500 ms p95 target under normal traffic.
+- Backup and restore procedures are tested regularly to protect against data loss and provide recovery confidence.
 
-## ADRs
+## Deployment Topology
 
-### ADR-01: Monorepo vs multiple repositories
+Local development
+- Python code under dev/
+- SQLite may be used for local development while PostgreSQL is the target production database.
+- Redis runs locally or in Docker for sessions and queue jobs.
+- MinIO is used for invoice artifact storage locally.
+- .env or OS environment variables are used for local secrets, but these values are never committed.
+
+Staging / test environment
+- PostgreSQL staging database with migrations executed via Alembic.
+- Redis for admin sessions and invoice queue.
+- S3-compatible storage or a test bucket for invoice content.
+- Playwright tests under test-automation/ run against the staging app using realistic browser flows.
+
+Production
+- Managed PostgreSQL with backups and encryption at rest.
+- Managed Redis for sessions and queue processing.
+- S3 or equivalent for generated invoice PDFs.
+- Application services behind HTTPS load balancer with autoscaling and health checks.
+- Secret values injected from a secret manager at deployment time.
+
+## Architecture Decision Records (ADRs)
+
+### ADR-01: Keep architecture aligned to the storefront, order, invoice, and admin workflow
 - **Status**: Accepted
-- **Context**: Project is small scope and team size is small. The SDLC enforces Python code in dev/ and Playwright tests in test-automation/.
-- **Decision**: Use a monorepo with clear folder boundaries (dev/, frontend/, test-automation/, infra/). This simplifies CI and cross-cutting changes.
-- **Consequences**: Easier coordination, single CI pipeline; requires disciplined ownership and folder-level CI jobs.
+- **Context**: The repository originally contained unrelated hotel/booking content and the architecture needed to be refocused to the Vinayaka File Works requirements. Scope confusion creates implementation drift and policy contradictions.
+- **Decision**: The system will only include storefront, cart/checkout, order persistence, invoice generation, and protected admin workflows. Unrelated booking/search functionality is explicitly out of scope.
+- **Consequences**: Clearer implementation planning and fewer feature conflicts; the project stays small and aligned with the stated business need.
 
-### ADR-02: PDF Generation strategy (ReportLab, async workers)
+### ADR-02: Use Python FastAPI in dev/ with Playwright TypeScript in test-automation/
 - **Status**: Accepted
-- **Context**: PDF must be reliable and consistent; server-side generation simplifies access control and storage.
-- **Decision**: Use ReportLab for deterministic PDF generation executed by background workers. Store PDFs in object storage and serve signed URLs. Keep option to revisit HTML->PDF if styling requires WYSIWYG.
-- **Consequences**: Minimal system dependencies and simpler containers; more manual layout coding; possible re-work if exact CSS-based rendering is required.
+- **Context**: The SDLC mandates Python code under dev/ and Playwright/TypeScript tests under test-automation/. The prior architecture was ambiguous about test placement and tooling.
+- **Decision**: Python backend code and service logic live under dev/. Browser automation and end-to-end tests are implemented in TypeScript under test-automation/ and run in CI separately from backend test suites.
+- **Consequences**: Clear repository boundaries and reduced cross-language confusion; a small monorepo remains manageable with folder-specific CI jobs.
 
-### ADR-03: Database & migration tooling (Postgres + Alembic)
+### ADR-03: Use PostgreSQL and Alembic for transactional order data
 - **Status**: Accepted
-- **Context**: Need ACID guarantees for order/inventory and repeatable migrations.
-- **Decision**: Postgres for production; Alembic for migration management; CI runs migrations against a disposable Postgres DB to validate migrations.
-- **Consequences**: Strong transactional guarantees; adds CI complexity and requires migration discipline.
+- **Context**: Orders and inventory must remain correct under concurrent customer demand. A transactional relational database is required for atomicity and stock integrity.
+- **Decision**: PostgreSQL is the production database. Alembic manages schema changes and migration validation in CI. Transactions and row locks protect inventory updates and order creation.
+- **Consequences**: Strong consistency and auditability; migration discipline is required, and local development may use SQLite for convenience while the deployment target remains Postgres.
 
-### ADR-04: Payment approach (Pluggable adapter; Stripe recommended)
+### ADR-04: Enforce Argon2id password hashing and secure server-side admin sessions
 - **Status**: Accepted
-- **Context**: Provider choice affects PCI scope and region support.
-- **Decision**: Implement a payment adapter interface and use Stripe in test mode for MVP. Require Idempotency-Key and webhook signature verification.
-- **Consequences**: Faster integration and QA using Stripe sandbox; retains ability to swap providers.
+- **Context**: The design review specifically required precise admin authentication details, including a stronger password hashing strategy and secure session handling.
+- **Decision**: Admin passwords are hashed with Argon2id. Administrators authenticate using a server-side session stored in Redis; the session cookie is Secure, HttpOnly, and SameSite-protected. Login endpoints are rate-limited and lock out repeated failures.
+- **Consequences**: Stronger admin protection and less risk of credential theft; additional session management infrastructure is required and hardened configuration must be maintained.
 
-## Risks and Open Questions
-- Payment provider for production (business decision): Stripe recommended; confirm acceptance for local market and fees.
-- Authoritative company contact/address for invoice: required to finalize invoice footer.
-- PDF styling fidelity: if pixel-perfect rendering is required, may need to migrate to HTML->PDF tooling (headless Chromium).
-- Data retention vs legal/financial retention: clarify with legal how long invoices and PII must be retained; record retention policy in infra docs.
-- Admin provisioning and rotation: define onboarding steps and secrets rotation cadence (recommend 90 days).
-- Inventory concurrency at high load: heavy parallel checkout traffic must be load-tested; consider optimistic locking or additional business rules if contention is high.
+### ADR-05: Use async invoice generation with a queue and signed object storage URLs
+- **Status**: Accepted
+- **Context**: Invoice generation can be slow and should not block checkout. A synchronous PDF generation endpoint is a risk factor for checkout reliability.
+- **Decision**: Order confirmation triggers an async invoice job via Redis queue. The worker renders the PDF, uploads it to object storage, and records status transitions. Customers receive a signed URL only when the invoice status is ready.
+- **Consequences**: Checkout remains responsive; operational complexity increases due to background workers, retries, and status tracking.
 
----
+### ADR-06: Secrets are never stored in source control and are injected at runtime
+- **Status**: Accepted
+- **Context**: The requirements explicitly prohibit committed secrets and require environment-based configuration.
+- **Decision**: Secrets are never committed into the repository. Local development uses environment variables; production uses a managed secret manager. CI runs secret scanning and blocks leaks before deployment.
+- **Consequences**: Stronger operational security and better compliance; the team must maintain a secret rotation and scanning workflow.
 
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+### ADR-07: Backups and encryption-at-rest are part of the core production design
+- **Status**: Accepted
+- **Context**: The requirement set and review call for explicit backup/restore, encryption, and retention policies.
+- **Decision**: PostgreSQL backups include daily automated backups and PITR, with restore verification. Database and object storage encryption-at-rest are enabled. Retention windows and PII handling are documented in operational procedures.
+- **Consequences**: Better resilience and compliance; operational overhead increases and restore drills need to be scheduled and tracked.
+
+## Open Questions
+
+- Which payment provider will be used in production: Stripe, Razorpay, or another provider, and what are the local compliance requirements?
+- What are the final business contact details and invoice footer content to be used on the public storefront and PDF invoice?
+- Is the invoice PDF required to be exact pixel-matched to the sample, or are field-level compliance and general layout sufficient?
+- What is the legal retention period for invoices and customer details after order fulfillment?
+- Will MFA be mandatory for all admin accounts or only for privileged admin roles during MVP?
+
+These questions do not block the architecture itself but should be resolved before detailed implementation and release sign-off.
+
