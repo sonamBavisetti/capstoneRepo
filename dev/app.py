@@ -1,4 +1,4 @@
-﻿from flask import Flask, jsonify, render_template_string
+from flask import Flask, jsonify, render_template_string
 
 app = Flask(__name__)
 
@@ -438,6 +438,49 @@ def index():
                 <p id="quote-message" class="form-message" aria-live="polite"></p>
               </div>
             </form>
+
+            <script>
+              // VNK-2-ENH-001: submit quote request to backend API.
+              (function () {
+                const form = document.getElementById('quote-form-element');
+                const message = document.getElementById('quote-message');
+                if (!form || !message) return;
+
+                function setMessage(text, kind) {
+                  message.textContent = text || '';
+                  message.classList.remove('success', 'error');
+                  if (kind) message.classList.add(kind);
+                }
+
+                form.addEventListener('submit', async function (evt) {
+                  evt.preventDefault();
+                  setMessage('Sending...', '');
+
+                  try {
+                    const formData = new FormData(form);
+                    const payload = {};
+                    for (const [k, v] of formData.entries()) payload[k] = v;
+
+                    const resp = await fetch('/api/quote-enquiries', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(payload)
+                    });
+
+                    const data = await resp.json().catch(() => ({}));
+                    if (!resp.ok) {
+                      setMessage(data.error || 'Unable to submit request. Please try again.', 'error');
+                      return;
+                    }
+
+                    setMessage('Thank you! Your enquiry has been submitted.', 'success');
+                    form.reset();
+                  } catch (e) {
+                    setMessage('Unable to submit request. Please try again.', 'error');
+                  }
+                });
+              })();
+            </script>
           </section>
 
           <footer id="contact">
@@ -449,7 +492,7 @@ def index():
     ''')
 
 # Register API blueprints if available (register individually so one failing import doesn't disable others)
-for _mod in ['products', 'cart', 'orders', 'admin', 'invoices']:
+for _mod in ['products', 'cart', 'orders', 'admin', 'invoices', 'quote_requests']:
     try:
         if _mod == 'products':
             from dev.api.products import products_bp as bp
@@ -461,6 +504,8 @@ for _mod in ['products', 'cart', 'orders', 'admin', 'invoices']:
             from dev.api.admin import admin_bp as bp
         elif _mod == 'invoices':
             from dev.api.invoices import invoices_bp as bp
+        elif _mod == 'quote_requests':
+            from dev.api.quote_requests import quote_bp as bp
         else:
             bp = None
         if bp is not None:

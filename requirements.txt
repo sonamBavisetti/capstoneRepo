@@ -1,4 +1,4 @@
-﻿Flask>=2.0
+Flask>=2.0
 SQLAlchemy>=1.4
 alembic
 psycopg2-binary
@@ -7,3 +7,4 @@ rq
 reportlab
 weasyprint
 python-dotenv
+pytest
