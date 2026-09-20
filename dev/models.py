@@ -1,10 +1,23 @@
 from __future__ import annotations
 """Data models for Vinayaka File Works (SQLAlchemy declarative models).
 """
+
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Numeric, DateTime, Text, Boolean, ForeignKey
-from sqlalchemy.orm import relationship
 import uuid
+
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import relationship
 
 from dev.db import Base
 
@@ -110,6 +123,41 @@ class QuoteEnquiry(Base):
     status = Column(String(50), default="new")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# --- VNK-2-ENH-002: DB-backed cart models ---
+
+
+class Cart(Base):
+    __tablename__ = "carts"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    customer_id = Column(String(255), nullable=False, unique=True, index=True)
+    status = Column(String(32), default="ACTIVE")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
+
+
+class CartItem(Base):
+    __tablename__ = "cart_items"
+    __table_args__ = (
+        UniqueConstraint("cart_id", "product_id", name="uq_cart_items_cart_product"),
+        CheckConstraint("quantity >= 1", name="ck_cart_items_quantity_min"),
+        CheckConstraint("quantity <= 99", name="ck_cart_items_quantity_max"),
+    )
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    cart_id = Column(String(36), ForeignKey("carts.id"), nullable=False, index=True)
+    product_id = Column(String(36), ForeignKey("products.id"), nullable=False, index=True)
+    quantity = Column(Integer, nullable=False)
+    unit_price = Column(Numeric(10, 2), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    cart = relationship("Cart", back_populates="items")
+    product = relationship("Product")
 
 
 class AdminUser(Base):
