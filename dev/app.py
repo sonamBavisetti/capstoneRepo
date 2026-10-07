@@ -441,10 +441,14 @@ def index():
 
             <script>
               // VNK-2-ENH-001: submit quote request to backend API.
+              // VNK-128: disable submit button and show progress while a request is in flight.
               (function () {
                 const form = document.getElementById('quote-form-element');
                 const message = document.getElementById('quote-message');
                 if (!form || !message) return;
+
+                const button = form.querySelector('.submit-btn');
+                const buttonDefaultLabel = button ? button.textContent : '';
 
                 function setMessage(text, kind) {
                   message.textContent = text || '';
@@ -454,6 +458,13 @@ def index():
 
                 form.addEventListener('submit', async function (evt) {
                   evt.preventDefault();
+
+                  if (button && button.disabled) return;
+
+                  if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Submitting...';
+                  }
                   setMessage('Sending...', '');
 
                   try {
@@ -477,6 +488,11 @@ def index():
                     form.reset();
                   } catch (e) {
                     setMessage('Unable to submit request. Please try again.', 'error');
+                  } finally {
+                    if (button) {
+                      button.disabled = false;
+                      button.textContent = buttonDefaultLabel;
+                    }
                   }
                 });
               })();
