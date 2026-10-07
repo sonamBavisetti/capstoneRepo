@@ -1,35 +1,61 @@
-# Jira Issue: VNK-1 — Implement feature flagging for new checkout flow
+# Jira Issue: VNK-128 — As a customer, I want the quote form submit button to show progress and prevent duplicate submits, so that I don't accidentally send multiple enquiries
 
-**Direct Link**: https://your-jira-instance/browse/VNK-1
+**Direct Link**: https://sonambavisetti.atlassian.net/browse/VNK-128
 
 ## Metadata
-- Issue Key: VNK-1
+- Issue Key: VNK-128
 - Issue Type: Story
 - Status: To Do
 - Priority: Medium
 - Assignee: Unassigned
-- Reporter: Product Owner
-- Labels: feature-flag, checkout
-- Components: checkout-service
+- Reporter: SONAM BAVISETTI
+- Labels: Not Available
+- Components: Not Available
+- Fix Versions: Not Available
 
 ## Description
-Implement a feature-flagged rollout of the new checkout flow so the engineering team can perform progressive rollout, A/B testing, and quick rollback if issues occur. The new flow introduces a redesigned UI and a revised payment validation sequence.
 
-## Acceptance Criteria
-> - [ ] AC-1: The new checkout flow can be toggled on/off by a configuration flag (env or feature service) per environment.
-> - [ ] AC-2: When feature flag is OFF, existing checkout flow remains unchanged for all users.
-> - [ ] AC-3: When feature flag is ON for a user segment, that segment sees the new flow end-to-end including payment validation.
-> - [ ] AC-4: Rollback switches the flow back to the old implementation without data loss.
-> - [ ] AC-5: Metrics emitted (checkout_start, checkout_complete, payment_failure) with tag `flow: new|old`.
+Traceability:
+- Approved Enhancement ID: VNK-VNK-2-ENH-001
+- Gap: No disabled state; generic message only; user can click multiple times.
+
+Functional requirements:
+- Disable submit button immediately after valid submission starts.
+- Show an in-progress indicator/state (e.g., label change to "Submitting…").
+- Re-enable submit button after request completes (success or failure).
+- Prevent multiple requests being sent from repeated clicks while in progress.
+
+## Acceptance Criteria (BDD)
+
+1) Disable while submitting (positive)
+> Given all form fields are valid
+> When I click Submit
+> Then the Submit button becomes disabled
+> And the UI indicates the form is submitting
+
+2) Prevent duplicate requests (negative)
+> Given the form submission request is in progress
+> When I click Submit again (or press Enter again)
+> Then no additional API request is initiated
+
+3) Re-enable after success (positive)
+> Given the form submission request completes successfully
+> When the success confirmation is shown
+> Then the Submit button is re-enabled
+> And the form is reset (or remains filled) according to the existing intended behavior
+
+4) Re-enable after failure (error)
+> Given the form submission request fails
+> When an error message is shown
+> Then the Submit button is re-enabled
 
 ## Notes
-- Do not migrate production data schema in a way that blocks rollback.
-- Consider using a lightweight feature flagging service or environment-variable toggle.
+Not Available
 
 ## Related Issues
-- Blocks: VNK-10 (payment gateway hardening)
-- Relates to: VNK-2 (checkout UI redesign)
+- Traces to: VNK-2 (ENH-001 — quote enquiries)
+- Issue Links: Not Available
 
 ---
 
-*This user story was created locally as a simulated MCP/Jira fetch for demo purposes. To perform a live fetch, provide MCP/Jira credentials or a reachable MCP endpoint.*
+*Fetched live from Jira (sonambavisetti.atlassian.net) via REST API using credentials in `.jira-config.json`.*
